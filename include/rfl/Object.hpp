@@ -42,10 +42,8 @@ class Object {
 
   Object(Object<T>&& _f) noexcept = default;
 
-	~Object() {
-    it_ = data_.begin();
-    if (data_.size() > 1)
-			data_.pop_back();
+  ~Object() {
+    //it_ = data_.begin(); //-- see commit comment/notes for commit e95b28d3b533a6fde5e503f70b648f4fcf8bc1ae :: circumnavigating a bug in either MSVC2022's STL
     clear();
   } 
 
