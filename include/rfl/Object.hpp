@@ -42,7 +42,12 @@ class Object {
 
   Object(Object<T>&& _f) noexcept = default;
 
-  ~Object() = default;
+	~Object() {
+    it_ = data_.begin();
+    if (data_.size() > 1)
+			data_.pop_back();
+    clear();
+  } 
 
   /// Iterator to the beginning.
   auto begin() { return data_.begin(); }

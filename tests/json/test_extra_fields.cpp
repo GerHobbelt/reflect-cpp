@@ -1,3 +1,6 @@
+//#define _ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH 1
+//#define _HAS_ITERATOR_DEBUGGING 0
+
 #include <iostream>
 #include <rfl.hpp>
 #include <rfl/json.hpp>
@@ -22,8 +25,11 @@ TEST(json, test_extra_fields) {
   homer.extra_fields["email"] = "homer@simpson.com";
   homer.extra_fields["town"] = "Springfield";
 
+	// hacky fix for MSVC2022 in debug build crashing internally in std::vector iterator validation code upon calling the destructor for `homer`.
+#if !defined(_ITERATOR_DEBUG_LEVEL) || _ITERATOR_DEBUG_LEVEL != 2 || 1
   write_and_read(
       homer,
       R"({"firstName":"Homer","lastName":"Simpson","age":45,"email":"homer@simpson.com","town":"Springfield"})");
+#endif
 }
 }  // namespace test_extra_fields
