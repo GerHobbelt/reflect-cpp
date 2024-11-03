@@ -30,9 +30,6 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
   using InputObjectType = typename R::InputObjectType;
   using InputVarType = typename R::InputVarType;
 
-  using OutputObjectType = typename W::OutputObjectType;
-  using OutputVarType = typename W::OutputVarType;
-
   constexpr static bool no_field_names_ = ProcessorsType::no_field_names_;
 
   using InputObjectOrArrayType =
@@ -82,6 +79,10 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
   static ResultType find_matching_alternative(
       const R& _r, const std::string& _disc_value, const InputVarType& _var,
       std::integer_sequence<int, _is...>) noexcept {
+    using PossibleTags =
+        possible_tags_t<TaggedUnion<_discriminator, AlternativeTypes...>>;
+    static_assert(!PossibleTags::has_duplicates(),
+                  "Duplicate tags are not allowed inside tagged unions.");
     ResultType res = Error("");
     bool match_found = false;
     (set_if_disc_value_matches<_is>(_r, _disc_value, _var, &res, &match_found),
@@ -89,9 +90,7 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
     if (match_found) [[likely]] {
       return res;
     } else {
-      const auto names =
-          TaggedUnion<_discriminator,
-                      AlternativeTypes...>::PossibleTags::names();
+      const auto names = PossibleTags::names();
       return Error("Could not parse tagged union, could not match " +
                    _discriminator.str() + " '" + _disc_value +
                    "'. The following tags are allowed: " +
