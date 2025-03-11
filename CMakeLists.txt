@@ -9,6 +9,7 @@ option(REFLECTCPP_FLEXBUFFERS "Enable flexbuffers support" OFF)
 option(REFLECTCPP_MSGPACK "Enable msgpack support" OFF)
 option(REFLECTCPP_XML "Enable XML support" OFF)
 option(REFLECTCPP_TOML "Enable TOML support" OFF)
+option(REFLECTCPP_UBJSON "Enable UBJSON support" OFF)
 option(REFLECTCPP_YAML "Enable YAML support" OFF)
 
 option(REFLECTCPP_BUILD_BENCHMARKS "Build benchmarks" OFF)
@@ -25,11 +26,12 @@ if(REFLECTCPP_BUILD_BENCHMARKS)
     set(REFLECTCPP_MSGPACK ON CACHE BOOL "" FORCE)
     set(REFLECTCPP_XML ON CACHE BOOL "" FORCE)
     set(REFLECTCPP_TOML ON CACHE BOOL "" FORCE)
+    set(REFLECTCPP_UBJSON ON CACHE BOOL "" FORCE)
     set(REFLECTCPP_YAML ON CACHE BOOL "" FORCE)
 endif()
 if (REFLECTCPP_BUILD_TESTS OR REFLECTCPP_BUILD_BENCHMARKS OR
     (REFLECTCPP_JSON AND NOT REFLECTCPP_USE_BUNDLED_DEPENDENCIES) OR
-    REFLECTCPP_BSON OR REFLECTCPP_CBOR OR REFLECTCPP_FLEXBUFFERS OR REFLECTCPP_MSGPACK OR REFLECTCPP_XML OR REFLECTCPP_TOML OR REFLECTCPP_YAML)
+    REFLECTCPP_BSON OR REFLECTCPP_CBOR OR REFLECTCPP_FLEXBUFFERS OR REFLECTCPP_MSGPACK OR REFLECTCPP_XML OR REFLECTCPP_TOML OR REFLECTCPP_UBJSON OR REFLECTCPP_YAML)
     # enable vcpkg per default if require features other than JSON
     set(REFLECTCPP_USE_VCPKG_DEFAULT ON)
 endif()
@@ -56,7 +58,7 @@ else()
     target_compile_options(reflectcpp PRIVATE $<$<CONFIG:Debug>:-Wall -Wextra>)
 endif()
 
-target_compile_features(reflectcpp PUBLIC cxx_std_20)
+# target_compile_features(reflectcpp PUBLIC cxx_std_20)
 
 set(REFLECT_CPP_SOURCES
     src/reflectcpp.cpp
@@ -73,7 +75,7 @@ if (REFLECTCPP_USE_BUNDLED_DEPENDENCIES)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rfl/thirdparty>)
 else ()
     find_package(ctre CONFIG REQUIRED)
-    target_link_libraries(reflectcpp INTERFACE ctre::ctre)
+    target_link_libraries(reflectcpp PUBLIC ctre::ctre)
 endif ()
 
 if (REFLECTCPP_JSON)
@@ -91,7 +93,7 @@ if (REFLECTCPP_JSON)
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/rfl/thirdparty>)
     else ()
         find_package(yyjson CONFIG REQUIRED)
-        target_link_libraries(reflectcpp INTERFACE yyjson::yyjson)
+        target_link_libraries(reflectcpp PUBLIC yyjson::yyjson)
     endif ()
 endif ()
 
@@ -121,7 +123,7 @@ if (REFLECTCPP_FLEXBUFFERS)
         src/reflectcpp_flexbuf.cpp
     )
     find_package(flatbuffers CONFIG REQUIRED)
-    target_link_libraries(reflectcpp INTERFACE flatbuffers::flatbuffers)
+    target_link_libraries(reflectcpp PUBLIC flatbuffers::flatbuffers)
 endif ()
 
 if (REFLECTCPP_MSGPACK)
@@ -140,6 +142,7 @@ if (REFLECTCPP_TOML)
     list(APPEND REFLECT_CPP_SOURCES
         src/reflectcpp_toml.cpp
     )
+    target_include_directories(reflectcpp SYSTEM PRIVATE "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include")
     if (MSVC)
         target_link_libraries(reflectcpp PRIVATE "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/tomlplusplus${CMAKE_STATIC_LIBRARY_SUFFIX}")
     else ()
@@ -147,12 +150,20 @@ if (REFLECTCPP_TOML)
     endif ()
 endif()
 
+if (REFLECTCPP_UBJSON)
+    list(APPEND REFLECT_CPP_SOURCES
+        src/reflectcpp_ubjson.cpp
+    )
+    target_include_directories(reflectcpp SYSTEM PRIVATE "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include")
+    find_package(jsoncons CONFIG REQUIRED)
+endif ()
+
 if (REFLECTCPP_XML)
     list(APPEND REFLECT_CPP_SOURCES
         src/reflectcpp_xml.cpp
     )
     find_package(pugixml CONFIG REQUIRED)
-    target_link_libraries(reflectcpp INTERFACE pugixml::pugixml)
+    target_link_libraries(reflectcpp PUBLIC pugixml::pugixml)
 endif ()
 
 if (REFLECTCPP_YAML)
@@ -160,7 +171,7 @@ if (REFLECTCPP_YAML)
         src/reflectcpp_yaml.cpp
     )
     find_package(yaml-cpp CONFIG REQUIRED)
-    target_link_libraries(reflectcpp INTERFACE yaml-cpp::yaml-cpp)
+    target_link_libraries(reflectcpp PUBLIC yaml-cpp::yaml-cpp)
 endif ()
 
 set_target_properties(reflectcpp PROPERTIES LINKER_LANGUAGE CXX)
@@ -177,7 +188,7 @@ endif ()
 if (REFLECTCPP_BUILD_BENCHMARKS)
     find_package(benchmark CONFIG REQUIRED)
     find_package(simdjson CONFIG REQUIRED)
-    target_link_libraries(reflectcpp INTERFACE benchmark::benchmark simdjson::simdjson)
+    target_link_libraries(reflectcpp PUBLIC benchmark::benchmark simdjson::simdjson)
     add_subdirectory(benchmarks)
 endif ()
 

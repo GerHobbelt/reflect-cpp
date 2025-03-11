@@ -86,31 +86,27 @@ struct TaggedUnion {
 
   /// Applies function _f to all underlying alternatives.
   template <class F>
-  auto visit(F& _f) {
-    return variant_.visit(_f);
+  auto visit(F&& _f)
+      -> decltype(std::declval<VariantType>().visit(std::declval<F&&>())) {
+    return variant_.visit(std::forward<F>(_f));
   }
 
   /// Applies function _f to all underlying alternatives.
   template <class F>
-  auto visit(F& _f) const {
-    return variant_.visit(_f);
-  }
-
-  /// Applies function _f to all underlying alternatives.
-  template <class F>
-  auto visit(const F& _f) {
-    return variant_.visit(_f);
-  }
-
-  /// Applies function _f to all underlying alternatives.
-  template <class F>
-  auto visit(const F& _f) const {
-    return variant_.visit(_f);
+  auto visit(F&& _f) const
+      -> decltype(std::declval<VariantType>().visit(std::declval<F&&>())) {
+    return variant_.visit(std::forward<F>(_f));
   }
 
   /// The underlying variant - a TaggedUnion is a thin wrapper
   /// around a variant that is mainly used for parsing.
   VariantType variant_;
+};
+
+template <typename T>
+concept TaggedUnionBased = requires(T t) {
+  []<internal::StringLiteral _discriminator, typename... Args>(
+      TaggedUnion<_discriminator, Args...> const&) {}(t);
 };
 
 template <class T>
