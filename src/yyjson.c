@@ -5715,7 +5715,7 @@ static_noinline yyjson_doc *read_root_single(u8 *hdr, u8 *cur, u8 *end,
   u8 **pre;    /* previous raw end pointer */
 
   hdr_len = sizeof(yyjson_doc) / sizeof(yyjson_val);
-  hdr_len += (sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0;
+  hdr_len += ((sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0);
   alc_num = hdr_len + 1; /* single value */
 
   val_hdr = (yyjson_val *)alc.malloc_(alc.ctx, alc_num * sizeof(yyjson_val));
@@ -5860,7 +5860,7 @@ static_inline yyjson_doc *read_root_minify(u8 *hdr, u8 *cur, u8 *end,
 
   dat_len = has_read_flag(STOP_WHEN_DONE) ? 256 : (usize)(end - cur);
   hdr_len = sizeof(yyjson_doc) / sizeof(yyjson_val);
-  hdr_len += (sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0;
+  hdr_len += ((sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0);
   alc_max = USIZE_MAX / sizeof(yyjson_val);
   alc_len = hdr_len + (dat_len / YYJSON_READER_ESTIMATED_MINIFY_RATIO) + 4;
   alc_len = yyjson_min(alc_len, alc_max);
@@ -6266,7 +6266,7 @@ static_inline yyjson_doc *read_root_pretty(u8 *hdr, u8 *cur, u8 *end,
 
   dat_len = has_read_flag(STOP_WHEN_DONE) ? 256 : (usize)(end - cur);
   hdr_len = sizeof(yyjson_doc) / sizeof(yyjson_val);
-  hdr_len += (sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0;
+  hdr_len += ((sizeof(yyjson_doc) % sizeof(yyjson_val)) > 0);
   alc_max = USIZE_MAX / sizeof(yyjson_val);
   alc_len = hdr_len + (dat_len / YYJSON_READER_ESTIMATED_PRETTY_RATIO) + 4;
   alc_len = yyjson_min(alc_len, alc_max);

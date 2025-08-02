@@ -32,5 +32,5 @@ SOFTWARE.
 #include "rfl/Generic.cpp"
 #include "rfl/generic/generic-Writer.cpp"
 #include "rfl/internal/strings/strings.cpp"
-#include "rfl/parsing/schema/Type.cpp"
-#include "rfl/parsing/schemaful/tuple_to_object.cpp"
+#include "rfl/parsing/schema/schema-Type.cpp"
+#include "rfl/parsing/schemaful/schema-tuple_to_object.cpp"
