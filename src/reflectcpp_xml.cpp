@@ -29,4 +29,4 @@ SOFTWARE.
 // Also, this speeds up compile time, compared to multiple separate .cpp files
 // compilation.
 
-#include "rfl/xml/Writer.cpp"
+#include "rfl/xml/xml-Writer.cpp"

@@ -29,4 +29,4 @@ SOFTWARE.
 // Also, this speeds up compile time, compared to multiple separate .cpp files
 // compilation.
 
-#include "rfl/bson/Writer.cpp"
+#include "rfl/bson/bson-Writer.cpp"

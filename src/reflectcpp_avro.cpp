@@ -29,7 +29,7 @@ SOFTWARE.
 // Also, this speeds up compile time, compared to multiple separate .cpp files
 // compilation.
 
-#include "rfl/avro/SchemaImpl.cpp"
-#include "rfl/avro/Type.cpp"
-#include "rfl/avro/Writer.cpp"
-#include "rfl/avro/to_schema.cpp"
+#include "rfl/avro/avro-SchemaImpl.cpp"
+#include "rfl/avro/avro-Type.cpp"
+#include "rfl/avro/avro-Writer.cpp"
+#include "rfl/avro/avro-to_schema.cpp"

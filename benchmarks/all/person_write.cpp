@@ -1,3 +1,5 @@
+#define BENCHMARK_FAMILY_ID "reflect-cpp-main"
+
 #include <benchmark/benchmark.h>
 
 #include <array>
