@@ -6,17 +6,17 @@
 #include <string>
 #include <vector>
 
-#include "../internal/strings/replace_all.hpp"
+#include "../internal/strings/strings.hpp"
 
 namespace rfl::parsing {
 
 /// Combines a set of errors to a single, readable error message.
-inline Error to_single_error_message(
+inline std::string to_single_error_message(
     std::vector<Error> _errors,
     std::optional<std::string> _msg_prefix = std::nullopt,
     size_t _err_limit = 10) {
   if (_errors.size() == 1) {
-    return std::move(_errors[0]);
+    return std::move(_errors[0].what());
   } else {
     std::stringstream stream;
     stream << (_msg_prefix
@@ -34,7 +34,7 @@ inline Error to_single_error_message(
                 "first "
              << _err_limit << ".";
     }
-    return Error(stream.str());
+    return stream.str();
   }
 }
 

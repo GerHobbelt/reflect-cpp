@@ -8,21 +8,22 @@
 #include "../Result.hpp"
 #include "../TaggedUnion.hpp"
 #include "../always_false.hpp"
-#include "../internal/strings/join.hpp"
+#include "../internal/strings/strings.hpp"
 #include "../named_tuple_t.hpp"
 #include "Parser_base.hpp"
 #include "TaggedUnionWrapper.hpp"
 #include "is_tagged_union_wrapper.hpp"
 #include "schema/Type.hpp"
+#include "schemaful/IsSchemafulReader.hpp"
+#include "schemaful/IsSchemafulWriter.hpp"
 #include "tagged_union_wrapper_no_ptr.hpp"
 
-namespace rfl {
-namespace parsing {
+namespace rfl::parsing {
 
 template <class R, class W, internal::StringLiteral _discriminator,
           class... AlternativeTypes, class ProcessorsType>
-requires AreReaderAndWriter<R, W,
-                            TaggedUnion<_discriminator, AlternativeTypes...>>
+  requires AreReaderAndWriter<R, W,
+                              TaggedUnion<_discriminator, AlternativeTypes...>>
 struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
               ProcessorsType> {
   using ResultType = Result<TaggedUnion<_discriminator, AlternativeTypes...>>;
@@ -38,22 +39,32 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
                          typename R::InputObjectType>;
 
   static ResultType read(const R& _r, const InputVarType& _var) noexcept {
-    const auto get_disc =
-        [&_r](InputObjectOrArrayType _obj_or_arr) -> Result<std::string> {
-      return get_discriminator(_r, _obj_or_arr);
-    };
+    if constexpr (schemaful::IsSchemafulReader<R>) {
+      return Parser<R, W, Variant<AlternativeTypes...>, ProcessorsType>::read(
+                 _r, _var)
+          .transform([](auto&& _variant) {
+            return TaggedUnion<_discriminator, AlternativeTypes...>(
+                std::move(_variant));
+          });
 
-    const auto to_result =
-        [&_r, _var](const std::string& _disc_value) -> ResultType {
-      return find_matching_alternative(
-          _r, _disc_value, _var,
-          std::make_integer_sequence<int, sizeof...(AlternativeTypes)>());
-    };
-
-    if constexpr (no_field_names_) {
-      return _r.to_array(_var).and_then(get_disc).and_then(to_result);
     } else {
-      return _r.to_object(_var).and_then(get_disc).and_then(to_result);
+      const auto get_disc =
+          [&_r](InputObjectOrArrayType _obj_or_arr) -> Result<std::string> {
+        return get_discriminator(_r, _obj_or_arr);
+      };
+
+      const auto to_result =
+          [&_r, _var](const std::string& _disc_value) -> ResultType {
+        return find_matching_alternative(
+            _r, _disc_value, _var,
+            std::make_integer_sequence<int, sizeof...(AlternativeTypes)>());
+      };
+
+      if constexpr (no_field_names_) {
+        return _r.to_array(_var).and_then(get_disc).and_then(to_result);
+      } else {
+        return _r.to_object(_var).and_then(get_disc).and_then(to_result);
+      }
     }
   }
 
@@ -62,17 +73,26 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
       const W& _w,
       const TaggedUnion<_discriminator, AlternativeTypes...>& _tagged_union,
       const P& _parent) noexcept {
-    const auto handle = [&](const auto& _val) {
-      write_wrapped(_w, _val, _parent);
-    };
-    rfl::visit(handle, _tagged_union.variant_);
+    if constexpr (schemaful::IsSchemafulWriter<W>) {
+      Parser<R, W, Variant<AlternativeTypes...>, ProcessorsType>::write(
+          _w, _tagged_union.variant(), _parent);
+    } else {
+      rfl::visit([&](const auto& _val) { write_wrapped(_w, _val, _parent); },
+                 _tagged_union.variant());
+    }
   }
 
   static schema::Type to_schema(
       std::map<std::string, schema::Type>* _definitions) noexcept {
-    using VariantType = std::variant<std::invoke_result_t<
-        decltype(wrap_if_necessary<AlternativeTypes>), AlternativeTypes>...>;
-    return Parser<R, W, VariantType, ProcessorsType>::to_schema(_definitions);
+    if constexpr (schemaful::IsSchemafulReader<R> &&
+                  schemaful::IsSchemafulWriter<W>) {
+      return Parser<R, W, Variant<AlternativeTypes...>,
+                    ProcessorsType>::to_schema(_definitions);
+    } else {
+      using VariantType = std::variant<std::invoke_result_t<
+          decltype(wrap_if_necessary<AlternativeTypes>), AlternativeTypes>...>;
+      return Parser<R, W, VariantType, ProcessorsType>::to_schema(_definitions);
+    }
   }
 
  private:
@@ -84,7 +104,7 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
         possible_tags_t<TaggedUnion<_discriminator, AlternativeTypes...>>;
     static_assert(!PossibleTags::has_duplicates(),
                   "Duplicate tags are not allowed inside tagged unions.");
-    ResultType res = Error("");
+    ResultType res = error("");
     bool match_found = false;
     (set_if_disc_value_matches<_is>(_r, _disc_value, _var, &res, &match_found),
      ...);
@@ -97,7 +117,7 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
              << _discriminator.str() << " '" << _disc_value
              << "'. The following tags are allowed: "
              << internal::strings::join(", ", names);
-      return Error(stream.str());
+      return error(stream.str());
     }
   }
 
@@ -105,7 +125,7 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
   static void set_if_disc_value_matches(const R& _r,
                                         const std::string& _disc_value,
                                         const InputVarType& _var,
-                                        ResultType* _res,
+                                        ResultType* _result,
                                         bool* _match_found) noexcept {
     using AlternativeType = std::remove_cvref_t<
         std::variant_alternative_t<_i, std::variant<AlternativeTypes...>>>;
@@ -124,7 +144,7 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
             std::move(_val));
       };
 
-      const auto embellish_error = [&](Error&& _e) {
+      const auto embellish_error = [&](auto&& _e) {
         std::stringstream stream;
         stream << "Could not parse tagged union with "
                   "discrimininator "
@@ -136,14 +156,14 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
       if constexpr (no_field_names_) {
         using T = tagged_union_wrapper_no_ptr_t<std::invoke_result_t<
             decltype(wrap_if_necessary<AlternativeType>), AlternativeType>>;
-        *_res = Parser<R, W, T, ProcessorsType>::read(_r, _var)
+        *_result = Parser<R, W, T, ProcessorsType>::read(_r, _var)
                     .transform(get_fields)
                     .transform(to_tagged_union)
-                    .or_else(embellish_error);
+                    .transform_error(embellish_error);
       } else {
-        *_res = Parser<R, W, AlternativeType, ProcessorsType>::read(_r, _var)
+        *_result = Parser<R, W, AlternativeType, ProcessorsType>::read(_r, _var)
                     .transform(to_tagged_union)
-                    .or_else(embellish_error);
+                    .transform_error(embellish_error);
       }
 
       *_match_found = true;
@@ -167,11 +187,11 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
     if constexpr (no_field_names_) {
       return _r.get_field_from_array(0, _obj_or_arr)
           .and_then(to_type)
-          .or_else(embellish_error);
+          .transform_error(embellish_error);
     } else {
       return _r.get_field_from_object(_discriminator.str(), _obj_or_arr)
           .and_then(to_type)
-          .or_else(embellish_error);
+          .transform_error(embellish_error);
     }
   }
 
@@ -215,7 +235,6 @@ struct Parser<R, W, TaggedUnion<_discriminator, AlternativeTypes...>,
   }
 };
 
-}  // namespace parsing
-}  // namespace rfl
+}  // namespace rfl::parsing
 
 #endif

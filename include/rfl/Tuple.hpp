@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "internal/nth_element_t.hpp"
+#include "internal/ptr_cast.hpp"
 #include "internal/tuple/calculate_positions.hpp"
 
 namespace rfl {
@@ -47,9 +48,9 @@ class Tuple {
 
   Tuple() : Tuple(Types()...) {}
 
-  Tuple(const Tuple<Types...>& _other) { copy_from_other(_other, seq_); }
+  Tuple(const Tuple& _other) { copy_from_other(_other, seq_); }
 
-  Tuple(Tuple<Types...>&& _other) noexcept {
+  Tuple(Tuple&& _other) noexcept {
     move_from_other(std::move(_other), seq_);
   }
 
@@ -59,29 +60,29 @@ class Tuple {
   template <int _index>
   constexpr auto& get() {
     using Type = internal::nth_element_t<_index, Types...>;
-    return *std::bit_cast<Type*>(data_.data() + pos<_index>());
+    return *internal::ptr_cast<Type*>(data_.data() + pos<_index>());
   }
 
   /// Gets an element by index.
   template <int _index>
   constexpr const auto& get() const {
     using Type = internal::nth_element_t<_index, Types...>;
-    return *std::bit_cast<const Type*>(data_.data() + pos<_index>());
+    return *internal::ptr_cast<const Type*>(data_.data() + pos<_index>());
   }
 
   /// Assigns the underlying object.
-  Tuple<Types...>& operator=(const Tuple<Types...>& _other) {
+  Tuple& operator=(const Tuple& _other) {
     if (this == &_other) {
       return *this;
     }
-    auto temp = Tuple<Types...>(_other);
+    auto temp = Tuple(_other);
     destroy_if_necessary(seq_);
     move_from_other(std::move(temp), seq_);
     return *this;
   }
 
   /// Assigns the underlying object.
-  Tuple<Types...>& operator=(Tuple<Types...>&& _other) noexcept {
+  Tuple& operator=(Tuple&& _other) noexcept {
     if (this == &_other) {
       return *this;
     }
@@ -100,8 +101,7 @@ class Tuple {
     };
     return [&]<int... _is>(std::integer_sequence<int, _is...>) {
       return (true && ... && is_same(std::integral_constant<int, _is>{}));
-    }
-    (std::make_integer_sequence<int, sizeof...(Types)>());
+    }(std::make_integer_sequence<int, sizeof...(Types)>());
   }
 
   /// Three-way comparison operator.
@@ -122,13 +122,12 @@ class Tuple {
       auto ordering = std::strong_ordering::equivalent;
       (compare(&ordering, std::integral_constant<int, _is>{}), ...);
       return ordering;
-    }
-    (std::make_integer_sequence<int, sizeof...(Types)>());
+    }(std::make_integer_sequence<int, sizeof...(Types)>());
   }
 
  private:
   template <int... _is>
-  void copy_from_other(const Tuple<Types...>& _other,
+  void copy_from_other(const Tuple& _other,
                        std::integer_sequence<int, _is...>) {
     const auto copy_one = [this]<int _i>(const auto& _other,
                                          std::integral_constant<int, _i>) {
@@ -162,7 +161,7 @@ class Tuple {
   }
 
   template <int... _is>
-  void move_from_other(Tuple<Types...>&& _other,
+  void move_from_other(Tuple&& _other,
                        std::integer_sequence<int, _is...>) {
     const auto move_one = [this]<int _i>(auto&& _other,
                                          std::integral_constant<int, _i>) {

@@ -3,7 +3,6 @@
 
 #include <msgpack.h>
 
-#include <bit>
 #include <cstddef>
 #include <exception>
 #include <string>
@@ -13,6 +12,7 @@
 #include "../Bytestring.hpp"
 #include "../Result.hpp"
 #include "../always_false.hpp"
+#include "../internal/ptr_cast.hpp"
 
 namespace rfl {
 namespace msgpack {
@@ -23,51 +23,79 @@ struct Reader {
   using InputVarType = msgpack_object;
 
   template <class T>
-  static constexpr bool has_custom_constructor = (requires(InputVarType var) {
-    T::from_msgpack_obj(var);
-  });
+  static constexpr bool has_custom_constructor =
+      (requires(InputVarType var) { T::from_msgpack_obj(var); });
 
   rfl::Result<InputVarType> get_field_from_array(
-      const size_t _idx, const InputArrayType _arr) const noexcept;
+      const size_t _idx, const InputArrayType _arr) const noexcept {
+    if (_idx >= _arr.size) {
+      return error("Index " + std::to_string(_idx) + " of of bounds.");
+    }
+    return _arr.ptr[_idx];
+  }
 
   rfl::Result<InputVarType> get_field_from_object(
-      const std::string& _name, const InputObjectType& _obj) const noexcept;
+      const std::string& _name, const InputObjectType& _obj) const noexcept {
+    for (uint32_t i = 0; i < _obj.size; ++i) {
+      const auto& key = _obj.ptr[i].key;
+      if (key.type != MSGPACK_OBJECT_STR) {
+        return error("Key in element " + std::to_string(i) +
+                     " was not a string.");
+      }
+      const auto current_name =
+          std::string_view(key.via.str.ptr, key.via.str.size);
+      if (_name == current_name) {
+        return _obj.ptr[i].val;
+      }
+    }
+    return error("No field named '" + _name + "' was found.");
+  }
 
-  bool is_empty(const InputVarType& _var) const noexcept;
+  bool is_empty(const InputVarType& _var) const noexcept {
+    return _var.type == MSGPACK_OBJECT_NIL;
+  }
 
   template <class T>
   rfl::Result<T> to_basic_type(const InputVarType& _var) const noexcept {
     const auto type = _var.type;
     if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
       if (type != MSGPACK_OBJECT_STR) {
-        return Error("Could not cast to string.");
+        return error("Could not cast to string.");
       }
       const auto str = _var.via.str;
       return std::string(str.ptr, str.size);
+
     } else if constexpr (std::is_same<std::remove_cvref_t<T>,
                                       rfl::Bytestring>()) {
       if (type != MSGPACK_OBJECT_BIN) {
-        return Error("Could not cast to a bytestring.");
+        return error("Could not cast to a bytestring.");
       }
       const auto bin = _var.via.bin;
-      return rfl::Bytestring(std::bit_cast<const std::byte*>(bin.ptr),
-                             bin.size);
+      const auto data = internal::ptr_cast<const std::byte*>(bin.ptr);
+      return rfl::Bytestring(data, data + bin.size);
+
     } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
       if (type != MSGPACK_OBJECT_BOOLEAN) {
-        return Error("Could not cast to boolean.");
+        return error("Could not cast to boolean.");
       }
       return _var.via.boolean;
-    } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>() ||
-                         std::is_integral<std::remove_cvref_t<T>>()) {
+
+    } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
       if (type == MSGPACK_OBJECT_FLOAT32 || type == MSGPACK_OBJECT_FLOAT64 ||
           type == MSGPACK_OBJECT_FLOAT) {
         return static_cast<T>(_var.via.f64);
-      } else if (type == MSGPACK_OBJECT_POSITIVE_INTEGER) {
+      }
+      return error(
+          "Could not cast to numeric value. The type must be float "
+          "or double.");
+
+    } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
+      if (type == MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return static_cast<T>(_var.via.u64);
       } else if (type == MSGPACK_OBJECT_NEGATIVE_INTEGER) {
         return static_cast<T>(_var.via.i64);
       }
-      return rfl::Error(
+      return error(
           "Could not cast to numeric value. The type must be integral, float "
           "or double.");
     } else {
@@ -75,10 +103,21 @@ struct Reader {
     }
   }
 
-  rfl::Result<InputArrayType> to_array(const InputVarType& _var) const noexcept;
+  rfl::Result<InputArrayType> to_array(
+      const InputVarType& _var) const noexcept {
+    if (_var.type != MSGPACK_OBJECT_ARRAY) {
+      return error("Could not cast to an array.");
+    }
+    return _var.via.array;
+  }
 
   rfl::Result<InputObjectType> to_object(
-      const InputVarType& _var) const noexcept;
+      const InputVarType& _var) const noexcept {
+    if (_var.type != MSGPACK_OBJECT_MAP) {
+      return error("Could not cast to a map.");
+    }
+    return _var.via.map;
+  }
 
   template <class ArrayReader>
   std::optional<Error> read_array(const ArrayReader& _array_reader,
@@ -99,8 +138,8 @@ struct Reader {
       const auto& key = _obj.ptr[i].key;
       const auto& val = _obj.ptr[i].val;
       if (key.type != MSGPACK_OBJECT_STR) {
-        return Error("Key in element " + std::to_string(i) +
-                     " was not a string.");
+        return rfl::Error("Key in element " + std::to_string(i) +
+                          " was not a string.");
       }
       const auto name = std::string_view(key.via.str.ptr, key.via.str.size);
       _object_reader.read(name, val);
@@ -114,7 +153,7 @@ struct Reader {
     try {
       return T::from_msgpack_obj(_var);
     } catch (std::exception& e) {
-      return rfl::Error(e.what());
+      return error(e.what());
     }
   }
 };

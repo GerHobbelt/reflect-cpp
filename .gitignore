@@ -10,7 +10,7 @@
 # Precompiled Headers
 *.gch
 *.pch
-
+.cache
 # Compiled Dynamic libraries
 *.so
 *.dylib
@@ -41,7 +41,9 @@
 **/build_clang/**
 
 # Output files
+*.avro
 *.bson
+*.capnproto
 *.cbor
 *.json
 *.fb
@@ -81,6 +83,7 @@ lib64/
 parts/
 sdist/
 var/
+vcpkg_installed/
 wheels/
 share/python-wheels/
 *.egg-info/

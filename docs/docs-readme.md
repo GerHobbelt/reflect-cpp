@@ -20,7 +20,7 @@
 
 [rfl::Box and rfl::Ref](rfl_ref.md) - For defining recursive structures.
 
-[rfl::Timestamp](timestamps.md) - For serializing and deserializing timestamps.
+[rfl::Timestamp and std::chrono::duration](timestamps.md) - For serializing and deserializing timestamps and durations.
 
 [rfl::Skip](rfl_skip.md) - For skipping fields during serialization and/or deserialization.
 
@@ -44,7 +44,7 @@
 
 [Size validation](size_validation.md) - For imposing size constraints on containers such as `std::vector` or `std::string`.
 
-[JSON schema](supported_formats/json_schema.md) - For validating your schema before you even send it to your C++ backend.
+[JSON schema](json_schema.md) - For validating your schema before you even send it to your C++ backend.
 
 ## Generic elements
 
