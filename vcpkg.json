@@ -74,6 +74,16 @@
         }
       ]
     },
+    "csv": {
+      "description": "Enable CSV support",
+      "dependencies": [
+        {
+          "name": "arrow",
+          "version>=": "21.0.0",
+          "features": ["csv"]
+        }
+      ]
+    },
     "ctre": {
       "description": "Install CTRE using vcpkg instead of using the bundled version",
       "dependencies": [
@@ -107,6 +117,16 @@
         {
           "name": "msgpack-c",
           "version>=": "6.0.0"
+        }
+      ]
+    },
+    "parquet": {
+      "description": "Enable parquet support",
+      "dependencies": [
+        {
+          "name": "arrow",
+          "version>=": "21.0.0",
+          "features": ["parquet"]
         }
       ]
     },
